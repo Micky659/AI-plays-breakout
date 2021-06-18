@@ -1,3 +1,5 @@
+import pickle
+
 import pygame
 import random
 import os
@@ -132,7 +134,7 @@ class Ball(pygame.sprite.Sprite):
 def display(score, win, player, level):
     # Current score
     score_label = Font.render("Score: " + str(score), 1, (255, 255, 255))
-    win.blit(score_label, (470, 10))
+    win.blit(score_label, (440, 10))
 
     # Current generation
     score_label = Font.render("Gens: " + str(gen - 1), 1, (255, 255, 255))
@@ -158,8 +160,12 @@ def eval_genomes(genomes, config):
 
     for genome_id, genome in genomes:
         genome.fitness = 0
-        net = neat.nn.FeedForwardNetwork.create(genome, config)
-        nets.append(net)
+        # If we are using pickle then we can directly append it to nets
+        if type(genome) is not neat.nn.feed_forward.FeedForwardNetwork:
+            net = neat.nn.FeedForwardNetwork.create(genome, config)
+            nets.append(net)
+        else:
+            nets.append(genome)
         player.append(Paddle(paddle))
         ge.append(genome)
 
@@ -173,10 +179,9 @@ def eval_genomes(genomes, config):
     clock = pygame.time.Clock()
 
     run = True
-    while run and len(player) > 0:  # Main program loop starts here
+    while run and len(player) > 0:
 
         win.blit(bg, (0, 0))
-
         for event in pygame.event.get():
             if event.type == QUIT:
                 run = False
@@ -222,7 +227,7 @@ def eval_genomes(genomes, config):
                 ge.pop(player.index(play))
                 player.pop(player.index(play))
 
-        rand = random.randrange(2, 5)  # Randomize ball speed after it hits a brick
+        rand = random.randrange(2, 5)  # Randomize ball speed after it hit a brick
         for brick in bricks.lists:
             if ball.rect.colliderect(brick):
                 score += 10
@@ -246,6 +251,13 @@ def eval_genomes(genomes, config):
             break
 
         display(score, win, winner, level)
+
+        if score > 400:
+            # Save best player using pickle
+            with open('winner.pkl', "wb") as f:
+                pickle.dump(nets[player.index([ply for ply in player if ply.alive][0])], f)
+                f.close()
+            break
 
         clock.tick(60)  # Set max fps
         pygame.display.flip()
@@ -271,6 +283,5 @@ if __name__ == '__main__':
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, 'config-feedforward.txt')
     run(config_path)
-
 
 # Created by Akshat Kothari (May, 2020)
